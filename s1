@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Функция для вывода пользователей и их домашних директорий, отсортированных по алфавиту
+list_users() {
+    awk -F: '{print $1, $6}' /etc/passwd | sort
+}
+
+# Функция для вывода запущенных процессов, отсортированных по PID
+list_processes() {
+    ps -eo pid,comm --sort=pid
+}
+
+# Функция для вывода справки
+show_help() {
+    echo "Использование: $0 [опции]"
+    echo "Опции:"
+    echo "  -u, --users       Вывести список пользователей и их домашние директории"
+    echo "  -p, --processes   Вывести список запущенных процессов"
+    echo "  -l, --log PATH    Перенаправить вывод в указанный файл"
+    echo "  -e, --errors PATH Перенаправить вывод ошибок в указанный файл"
+    echo "  -h, --help        Показать это сообщение и завершить работу"
+}
+
+# Функция для проверки доступа к файлам и директориям
+check_path() {
+    local path=$1
+    if [ ! -w "$path" ]; then
+        echo "Ошибка: Нет доступа для записи в $path" >&2
+        exit 1
+    fi
+}
+
+# Функция для логирования
+log_output() {
+    local path=$1
+    check_path "$path"
+    exec >"$path"
+}
+
+# Функция для логирования ошибок
+log_errors() {
+    local path=$1
+    check_path "$path"
+    exec 2>"$path"
+}
+
+# Разбор аргументов командной строки с использованием getopt
+ARGS=$(getopt -o upl:e:h --long users,processes,log:,errors:,help -n "$0" -- "$@")
+if [ $? -ne 0 ]; then
+    echo "Ошибка: неверный ввод" >&2
+    exit 1
+fi
+eval set -- "$ARGS"
+
+# Основной цикл обработки аргументов
+while true; do
+    case "$1" in
+        -u|--users)
+            list_users
+            shift
+            ;;
+        -p|--processes)
+            list_processes
+            shift
+            ;;
+        -l|--log)
+            log_output "$2"
+            shift 2
+            ;;
+        -e|--errors)
+            log_errors "$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Неизвестный параметр $1" >&2
+            exit 1
+            ;;
+    esac
+done
