@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Функция для вывода процессов
+list_processes() {
+    ps -eo pid,comm --sort=pid
+}
+
+# Проверка пути для записи
+check_path() {
+    local path=$1
+    if [ -z "$path" ]; then
+        echo "Ошибка: Путь не указан." >&2
+        exit 1
+    fi
+    if [ -e "$path" ]; then
+        if [ ! -w "$path" ]; then
+            echo "Ошибка: Нет прав на запись в $path" >&2
+            exit 1
+        fi
+    else
+        touch "$path" 2>/dev/null || { echo "Ошибка: Не удалось создать файл $path" >&2; exit 1; }
+    fi
+}
+
+# Переменные для путей
+LOG_FILE=""
+ERROR_FILE=""
+CMD=""
+
+# Обработка аргументов
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -p|--processes)
+            CMD="list_processes"
+            shift
+            ;;
+        -l|--log)
+            LOG_FILE="$2"
+            check_path "$LOG_FILE"
+            shift 2
+            ;;
+        -e|--errors)
+            ERROR_FILE="$2"
+            check_path "$ERROR_FILE"
+            shift 2
+            ;;
+        *)
+            echo "Ошибка: Неизвестный параметр $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Выполнение команды
+if [ -z "$CMD" ]; then
+    echo "Ошибка: Не указана команда для выполнения." >&2
+    exit 1
+fi
+
+if [ -n "$LOG_FILE" ] && [ -n "$ERROR_FILE" ]; then
+    # Вывод логов и ошибок в разные файлы
+    { $CMD; } >>"$LOG_FILE" 2>>"$ERROR_FILE"
+elif [ -n "$LOG_FILE" ]; then
+    # Объединение stdout и stderr в один файл
+    { $CMD; } >>"$LOG_FILE" 2>&1
+elif [ -n "$ERROR_FILE" ]; then
+    # Вывод ошибок в файл, stdout в консоль
+    { $CMD; } 2>>"$ERROR_FILE"
+else
+    # Вывод в консоль
+    { $CMD; }
+fi
