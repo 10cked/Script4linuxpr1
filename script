@@ -2,7 +2,7 @@
 
 # Функция для вывода пользователей и их домашних директорий
 list_users() {
-    awk -F: '$3 >= 1000 {print $1 "\t" $6}' /etc/passwd | sort
+    awk -F: '{print $1, $6}' /etc/passwd | sort
 }
 
 # Функция для вывода запущенных процессов
@@ -77,11 +77,10 @@ done
 if [ -n "$CMD" ]; then
     if [ -n "$LOG_FILE" ] && [ -n "$ERROR_FILE" ]; then
         $CMD >>"$LOG_FILE" 2>>"$ERROR_FILE"  # Раздельное перенаправление stdout и stderr
-    if [ -n "$ERROR_FILE" ]; then
-        $CMD 2>>"$ERROR_FILE"  # Только stderr в файл, stdout в консоль
-    if [ -n "$LOG_FILE" ]; then
-        $CMD >>"$LOG_FILE" # Объединение stdout и stderr в лог-файл
-    
+    elif [ -n "$LOG_FILE" ]; then
+        $CMD >>"$LOG_FILE" 2>&1  # Объединение stdout и stderr в лог-файл
+    elif [ -n "$ERROR_FILE" ]; then
+        exec 2>>"$ERROR_FILE"  # Только stderr в файл, stdout в консоль
     else
         $CMD  # Вывод в консоль
     fi
